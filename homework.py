@@ -90,7 +90,7 @@ def main():
             for homework in homeworks:
                 message = parse_status(homework)
                 send_message(bot, message)
-            current_timestamp = response.get('currrent_date')
+            current_timestamp = response.get('current_date')
             time.sleep(RETRY_TIME)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
