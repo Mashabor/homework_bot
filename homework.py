@@ -106,7 +106,4 @@ if __name__ == '__main__':
         level=logging.INFO,
         filename='my_logging.log'
     )
-try:
     main()
-except KeyboardInterrupt:
-    print('Программа завершена')
