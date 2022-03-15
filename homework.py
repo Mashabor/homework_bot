@@ -64,6 +64,7 @@ def check_response(response):
 
 
 def parse_status(homework):
+    """Метод проверки статуса домашней работы."""
     homework_name = homework.get('homework_name')
     homework_status = homework.get('status')
     verdict = HOMEWORK_STATUSES[homework_status]
@@ -99,11 +100,12 @@ def main():
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger(__name__)
     logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
-    filename='my_logging.log'
-)
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        level=logging.INFO,
+        filename='my_logging.log'
+    )
 try:
     main()
 except KeyboardInterrupt:
