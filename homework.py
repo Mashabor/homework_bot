@@ -35,12 +35,13 @@ logging.basicConfig(
     level=logging.DEBUG,
 )
 
+
 def send_message(bot, message):
     """Метод отправки сообщения."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
         logger.info('Сообщение отправлено')
-    except telegram.error.TelegramError as error:
+    except telegram.error.TelegramError:
         logger.error(MessageError)
         raise MessageError('Сообщение не отправлено')
 
