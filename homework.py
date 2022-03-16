@@ -1,16 +1,13 @@
 import os
 import time
-
 import requests
 import telegram
-
 import logging
 
 from dotenv import load_dotenv
-
 from http import HTTPStatus
 
-from exceptions import NoCheckHomeWorks
+from exceptions import MessageError, StatusCodeError
 
 load_dotenv()
 
@@ -36,38 +33,48 @@ def send_message(bot, message):
     """Метод отправки сообщения."""
     try:
         bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
-        logging.info('Сообщение отправлено')
-    except Exception:
-        logging.error('Сообщение не отправлено')
+        logger.info('Сообщение отправлено')
+    except telegram.error.TelegramError as error:
+        logger.error(MessageError)
+        raise MessageError('Сообщение не отправлено')
 
 
 def get_api_answer(current_timestamp):
     """Метод запроса к API."""
     timestamp = current_timestamp or int(time.time())
     params = {'from_date': timestamp}
-    response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-    if response.status_code == HTTPStatus.OK:
+    try:
+        response = requests.get(ENDPOINT, headers=HEADERS, params=params)
+        if response.status_code != HTTPStatus.OK:
+            logging.error(StatusCodeError)
+            raise StatusCodeError('Данный ресурс недоступен')
         return response.json()
-    else:
-        logger.error('В данный момент ссылка недоступна')
+    except requests.RequestException as error:
+        logging.error(error)
+        raise requests.RequestException('Данный ресурс недоступен')
 
 
 def check_response(response):
     """Метод проверки ответа API на корректность."""
     try:
         homeworks = response['homeworks']
-    except NoCheckHomeWorks:
-        raise NoCheckHomeWorks('Ошибка при проверке домашки')
-    if not isinstance(homeworks, list):
-        raise NoCheckHomeWorks('Ошибка с домашкой')
+    except KeyError:
+        logger.error(KeyError)
+        raise KeyError('Ключ недоступен')
     return homeworks
 
 
 def parse_status(homework):
     """Метод проверки статуса домашней работы."""
     homework_name = homework.get('homework_name')
+    if not homework_name:
+        logger.error('Название отсутствует')
+        raise Exception('Название отсутствует')
     homework_status = homework.get('status')
     verdict = HOMEWORK_STATUSES[homework_status]
+    if verdict is None:
+        logging.error('Неизвестный статус')
+        raise KeyError()
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -83,13 +90,17 @@ def main():
     """Основная логика работы бота."""
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
+    status_homework = None
     while True:
         try:
             response = get_api_answer(current_timestamp)
-            homeworks = check_response(response)
-            for homework in homeworks:
+            homework = check_response(response)[0]
+            if status_homework != homework.get('status'):
                 message = parse_status(homework)
                 send_message(bot, message)
+                status_homework = homework.get('status')
+            else:
+                logging.debug('Статус не изменился')
             current_timestamp = response.get('current_date')
             time.sleep(RETRY_TIME)
         except Exception as error:
@@ -103,7 +114,6 @@ if __name__ == '__main__':
     logger = logging.getLogger(__name__)
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO,
-        filename='my_logging.log'
+        level=logging.DEBUG,
     )
     main()

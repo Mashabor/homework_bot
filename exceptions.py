@@ -1,7 +1,13 @@
 """Мои исключения."""
 
 
-class NoCheckHomeWorks(Exception):
-    """Ошибка при проверке домашки."""
+class MessageError(Exception):
+    """Ошибка при отправке сообщения."""
+
+    pass
+
+
+class StatusCodeError(Exception):
+    """Ошибка доступности ресурса."""
 
     pass
