@@ -29,6 +29,12 @@ HOMEWORK_STATUSES = {
 }
 
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG,
+)
+
 def send_message(bot, message):
     """Метод отправки сообщения."""
     try:
@@ -60,16 +66,18 @@ def check_response(response):
         homeworks = response['homeworks']
     except KeyError:
         logger.error(KeyError)
-        raise KeyError('Ключ недоступен')
+    if type(response['homeworks']) is not list:
+        logger.error('Ответ пришел не в виде списка')
+        raise TypeError('Ответ пришел не в виде списка')
     return homeworks
 
 
 def parse_status(homework):
     """Метод проверки статуса домашней работы."""
+    if len(homework) == 0:
+        logger.error('Домашняя работа отсутствует')
+        raise KeyError('Домашняя работа отсутствует')
     homework_name = homework.get('homework_name')
-    if not homework_name:
-        logger.error('Название отсутствует')
-        raise Exception('Название отсутствует')
     homework_status = homework.get('status')
     verdict = HOMEWORK_STATUSES[homework_status]
     if verdict is None:
@@ -103,17 +111,9 @@ def main():
                 logging.debug('Статус не изменился')
             current_timestamp = response.get('current_date')
             time.sleep(RETRY_TIME)
-        except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            send_message(bot, message)
         finally:
             time.sleep(RETRY_TIME)
 
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.DEBUG,
-    )
     main()
