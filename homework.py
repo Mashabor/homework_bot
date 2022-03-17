@@ -1,13 +1,14 @@
+import logging
 import os
 import time
+from http import HTTPStatus
+from json import JSONDecodeError
+
 import requests
 import telegram
-import logging
-
 from dotenv import load_dotenv
-from http import HTTPStatus
 
-from exceptions import MessageError, StatusCodeError
+from exceptions import MessageError, VariablesError
 
 load_dotenv()
 
@@ -52,13 +53,17 @@ def get_api_answer(current_timestamp):
     params = {'from_date': timestamp}
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=params)
-        if response.status_code != HTTPStatus.OK:
-            logging.error(StatusCodeError)
-            raise StatusCodeError('Данный ресурс недоступен')
-        return response.json()
-    except requests.RequestException as error:
-        logging.error(error)
-        raise requests.RequestException('Данный ресурс недоступен')
+    except RequestException:
+        logger.error('В данный момент ресурс недоступен')
+        raise RequestException('В данный момент ресурс недоступен')
+    if response.status_code == HTTPStatus.OK:
+        try:
+            return response.json()
+        except JSONDecodeError:
+            logger.error('Ответ API не преобразуется в json')
+    else:
+        logger.error('Ошибка запроса')
+        raise ConnectionError()
 
 
 def check_response(response):
@@ -66,7 +71,8 @@ def check_response(response):
     try:
         homeworks = response['homeworks']
     except KeyError:
-        logger.error(KeyError)
+        logger.error('Отсутствует ключ')
+        raise KeyError('Отсутствует ключ')
     if type(response['homeworks']) is not list:
         logger.error('Ответ пришел не в виде списка')
         raise TypeError('Ответ пришел не в виде списка')
@@ -78,12 +84,18 @@ def parse_status(homework):
     if len(homework) == 0:
         logger.error('Домашняя работа отсутствует')
         raise KeyError('Домашняя работа отсутствует')
+    if homework.get('homework_name') is None:
+        logger.error('Отсутствует название')
+        raise KeyError('Отсутствует название')
     homework_name = homework.get('homework_name')
+    if homework.get('status') is None:
+        logger.error('Отсутствует статус')
+        raise KeyError('Отсутствует статус')
     homework_status = homework.get('status')
     verdict = HOMEWORK_STATUSES[homework_status]
     if verdict is None:
-        logging.error('Неизвестный статус')
-        raise KeyError()
+        logging.error('Неопределенный статус')
+        raise KeyError('Неопределенный статус')
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
@@ -97,21 +109,26 @@ def check_tokens():
 
 def main():
     """Основная логика работы бота."""
+    if not check_tokens():
+        logging.critical('Ошибка в переменных окружения')
+        raise VariablesError()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
-    status_homework = None
+    error_message = None
     while True:
         try:
             response = get_api_answer(current_timestamp)
             homework = check_response(response)[0]
-            if status_homework != homework.get('status'):
+            if homework:
                 message = parse_status(homework)
                 send_message(bot, message)
-                status_homework = homework.get('status')
             else:
                 logging.debug('Статус не изменился')
             current_timestamp = response.get('current_date')
             time.sleep(RETRY_TIME)
+        except Exception as error:
+            message = f'Сбой в работе программы: {error}'
+            send_message(bot, message)
         finally:
             time.sleep(RETRY_TIME)
 

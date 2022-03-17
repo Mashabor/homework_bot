@@ -7,7 +7,7 @@ class MessageError(Exception):
     pass
 
 
-class StatusCodeError(Exception):
-    """Ошибка доступности ресурса."""
+class VariablesError(Exception):
+    """Ошибка переменных окружения."""
 
     pass
