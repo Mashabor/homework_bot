@@ -5,8 +5,9 @@ from http import HTTPStatus
 from json import JSONDecodeError
 
 import requests
-import telegram
 from dotenv import load_dotenv
+from requests import RequestException
+import telegram
 
 from exceptions import MessageError, VariablesError
 
@@ -114,7 +115,6 @@ def main():
         raise VariablesError()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     current_timestamp = int(time.time())
-    error_message = None
     while True:
         try:
             response = get_api_answer(current_timestamp)
